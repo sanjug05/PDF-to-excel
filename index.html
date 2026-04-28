@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF to Excel Smart Extractor</title>
+  <!-- Tailwind CSS CDN for modern UI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PDF.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- SheetJS Library for Excel export -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <div class="container mx-auto p-4 max-w-7xl">
+    <!-- Header -->
+    <header class="text-center my-8">
+      <h1 class="text-4xl font-bold text-gray-800 flex items-center justify-center gap-3">
+        <i class="fas fa-file-pdf text-red-600"></i> 
+        PDF to Excel Smart Extractor
+      </h1>
+      <p class="text-gray-600 mt-2">Upload PDFs, define headers, extract structured data, and export to Excel.</p>
+    </header>
+
+    <!-- Main Dashboard Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Left Panel: Upload & Configuration -->
+      <div class="lg:col-span-1 space-y-6">
+        <!-- Upload Area -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+            <i class="fas fa-cloud-upload-alt text-blue-500"></i> Upload PDFs
+          </h2>
+          <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition">
+            <i class="fas fa-file-pdf text-4xl text-gray-400 mb-2"></i>
+            <p class="text-gray-600">Drag & drop PDFs here or click to browse</p>
+            <p class="text-xs text-gray-400 mt-1">Supports multiple files</p>
+            <input type="file" id="fileInput" class="hidden" accept=".pdf" multiple>
+          </div>
+          <div id="fileList" class="mt-4 space-y-2 text-sm"></div>
+          <div id="progressContainer" class="mt-3 hidden">
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+              <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+            <p id="progressText" class="text-xs text-gray-500 mt-1">Processing...</p>
+          </div>
+        </div>
+
+        <!-- Header Configuration Panel -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+            <i class="fas fa-sliders-h text-green-500"></i> Field Headers
+          </h2>
+          <div id="headersContainer" class="space-y-2 mb-4">
+            <!-- Dynamic header inputs will be injected here -->
+          </div>
+          <div class="flex gap-2">
+            <button id="addHeaderBtn" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition">
+              <i class="fas fa-plus mr-1"></i> Add Header
+            </button>
+            <button id="saveTemplateBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-lg transition" title="Save as Template">
+              <i class="fas fa-save"></i>
+            </button>
+            <button id="loadTemplateBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-lg transition" title="Load Template">
+              <i class="fas fa-folder-open"></i>
+            </button>
+          </div>
+          <button id="processBtn" class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition">
+            <i class="fas fa-cogs mr-2"></i>Extract Data
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Panel: Data Preview Table -->
+      <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+              <i class="fas fa-table text-purple-500"></i> Extracted Data Preview
+            </h2>
+            <div class="flex gap-2">
+              <button id="clearDataBtn" class="bg-red-100 text-red-600 hover:bg-red-200 py-2 px-4 rounded-lg transition text-sm">
+                <i class="fas fa-trash-alt mr-1"></i> Clear
+              </button>
+              <button id="exportBtn" class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition text-sm">
+                <i class="fas fa-download mr-1"></i> Export Excel
+              </button>
+            </div>
+          </div>
+          <div class="overflow-x-auto border border-gray-200 rounded-lg">
+            <table id="dataTable" class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr id="tableHeaderRow"></tr>
+              </thead>
+              <tbody id="tableBody" class="bg-white divide-y divide-gray-200">
+                <tr><td colspan="100%" class="text-center py-8 text-gray-400">Upload PDFs and process to see data here</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p id="statusMessage" class="text-sm text-gray-500 mt-2"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load custom JS modules -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
