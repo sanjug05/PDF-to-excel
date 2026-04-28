@@ -1,119 +1,861 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF to Excel Smart Extractor</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dealer Report PDF Extractor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0e14;--panel:#111620;--card:#161d2a;--border:#1f2d42;--border2:#2a3d58;
+  --accent:#00c2ff;--accent2:#0084c8;--glow:rgba(0,194,255,.12);
+  --gold:#f5a623;--gold-dim:rgba(245,166,35,.12);
+  --green:#22d65f;--red:#ff4d4d;--purple:#a78bfa;
+  --t1:#e2eaf5;--t2:#7a93b0;--t3:#3a5070;
+  --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+  --r:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden}
+
+/* grid bg */
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(0,194,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,194,255,.03) 1px,transparent 1px);
+  background-size:48px 48px;pointer-events:none;z-index:0}
+
+.wrap{position:relative;z-index:1;max-width:1500px;margin:0 auto;padding:0 20px 60px}
+
+/* ── HEADER ── */
+header{padding:18px 0;border-bottom:1px solid var(--border);margin-bottom:28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-box{width:42px;height:42px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.logo-text h1{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.logo-text p{font-size:11px;color:var(--t2);font-family:var(--mono);letter-spacing:.4px}
+.badge{margin-left:auto;font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:4px;border:1px solid rgba(0,194,255,.3);color:var(--accent);background:var(--glow)}
+
+/* ── LAYOUT ── */
+.grid{display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+/* ── SIDEBAR ── */
+.sidebar{display:flex;flex-direction:column;gap:16px}
+
+/* ── CARDS ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.ch{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ct{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t2);font-family:var(--mono);display:flex;align-items:center;gap:7px}
+.ct .dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.cb{padding:16px}
+
+/* ── UPLOAD ── */
+.drop{border:2px dashed var(--border2);border-radius:8px;padding:30px 16px;text-align:center;cursor:pointer;transition:.2s;position:relative}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--glow)}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-icon{font-size:32px;display:block;margin-bottom:10px}
+.drop h3{font-size:13px;font-weight:600;margin-bottom:4px}
+.drop p{font-size:11px;color:var(--t2)}
+
+/* ── FILE LIST ── */
+.flist{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.fitem{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 11px;display:flex;align-items:center;gap:9px;font-size:11px;transition:.15s}
+.fitem.s-ok{border-color:var(--green)}
+.fitem.s-err{border-color:var(--red)}
+.fitem.s-proc{border-color:var(--accent)}
+.fname{flex:1;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+.fbadge{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;white-space:nowrap}
+.s-ok .fbadge{color:var(--green);background:rgba(34,214,95,.1)}
+.s-err .fbadge{color:var(--red);background:rgba(255,77,77,.1)}
+.s-proc .fbadge{color:var(--accent);background:var(--glow)}
+.frem{cursor:pointer;color:var(--t3);font-size:13px;transition:.15s}
+.frem:hover{color:var(--red)}
+
+/* ── BUTTONS ── */
+.btn{width:100%;padding:11px;border-radius:7px;border:none;cursor:pointer;font-family:var(--sans);font-weight:600;font-size:13px;transition:.2s;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn-p{background:var(--accent);color:#000}
+.btn-p:hover{background:#22d0ff;box-shadow:0 0 20px rgba(0,194,255,.35)}
+.btn-p:disabled{background:var(--border);color:var(--t3);cursor:not-allowed;box-shadow:none}
+.btn-g{background:var(--green);color:#000}
+.btn-g:hover{background:#2fec6e}
+.btn-g:disabled{background:var(--border);color:var(--t3);cursor:not-allowed}
+.btn-o{background:var(--gold);color:#000}
+.btn-o:hover{background:#ffb830}
+.btn-o:disabled{background:var(--border);color:var(--t3);cursor:not-allowed}
+.btn-s{background:transparent;border:1px solid var(--border2);color:var(--t2);padding:8px 12px;font-size:12px}
+.btn-s:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── PROGRESS ── */
+.prog{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:12px;display:none}
+.prog.show{display:block}
+.prog-lbl{font-size:11px;color:var(--t2);margin-bottom:7px;font-family:var(--mono)}
+.prog-bg{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s ease;width:0%}
+
+/* ── FIELD PANEL ── */
+.field-group{margin-bottom:14px}
+.field-group-title{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.field-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.field-row:last-child{border-bottom:none}
+.field-chk{width:14px;height:14px;border-radius:3px;border:1px solid var(--border2);background:transparent;cursor:pointer;accent-color:var(--accent);flex-shrink:0}
+.field-lbl{font-size:11px;font-family:var(--mono);color:var(--t1);flex:1}
+.field-alias{font-size:9px;color:var(--t3);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px}
+
+/* ── STATS ── */
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:12px 16px;flex:1;min-width:90px}
+.sv{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--accent);line-height:1}
+.sl{font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;margin-top:3px}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:0}
+.tab-btn{padding:10px 20px;font-size:12px;font-weight:600;cursor:pointer;background:transparent;border:none;color:var(--t2);font-family:var(--sans);border-bottom:2px solid transparent;transition:.15s;display:flex;align-items:center;gap:6px}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-btn:hover:not(.active){color:var(--t1)}
+.tab-count{background:var(--border2);color:var(--t2);font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:3px}
+.tab-btn.active .tab-count{background:var(--glow);color:var(--accent)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow:auto;max-height:480px;border-radius:0 0 var(--r) var(--r)}
+table{width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono)}
+thead{position:sticky;top:0;z-index:5}
+th{background:#0e1520;border-bottom:1px solid var(--border2);padding:10px 12px;text-align:left;font-size:9px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t2);white-space:nowrap}
+th:first-child{color:var(--accent)}
+tr{border-bottom:1px solid var(--border);transition:.1s}
+tr:hover{background:rgba(0,194,255,.04)}
+tr:last-child{border-bottom:none}
+td{padding:0;vertical-align:middle}
+td.fixed-cell{padding:8px 12px;color:var(--t2);font-size:10px;white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis}
+td input{width:100%;padding:8px 12px;background:transparent;border:none;outline:none;color:var(--t1);font-family:var(--mono);font-size:11px;transition:.15s;min-width:120px}
+td input:focus{background:rgba(0,194,255,.07);outline:1px solid var(--accent);outline-offset:-1px}
+td input::placeholder{color:var(--t3)}
+td input.extracted{color:var(--t1)}
+td input.empty{color:var(--t3)}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:50px 20px}
+.empty-icon{font-size:44px;display:block;margin-bottom:12px}
+.empty p{font-size:13px;color:var(--t2)}
+.empty small{font-size:11px;color:var(--t3);font-family:var(--mono);display:block;margin-top:5px}
+
+/* ── MAIN ── */
+.main{display:flex;flex-direction:column;gap:16px}
+
+/* ── TOAST ── */
+#toaster{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:7px}
+.toast{background:var(--card);border:1px solid var(--border2);border-radius:7px;padding:10px 14px;font-size:12px;font-family:var(--mono);display:flex;align-items:center;gap:8px;animation:tin .2s ease;max-width:320px}
+.toast.ok{border-color:var(--green);color:var(--green)}
+.toast.err{border-color:var(--red);color:var(--red)}
+.toast.inf{border-color:var(--accent);color:var(--accent)}
+@keyframes tin{from{transform:translateX(16px);opacity:0}to{transform:none;opacity:1}}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--panel)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent2)}
+
+.spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.15);border-top-color:currentColor;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.sep{height:1px;background:var(--border);margin:10px 0}
+.note{font-size:10px;color:var(--t3);font-family:var(--mono);margin-top:8px;line-height:1.5}
+
+/* column width helpers */
+.w-xs{min-width:70px} .w-sm{min-width:100px} .w-md{min-width:140px} .w-lg{min-width:180px} .w-xl{min-width:220px}
+</style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body>
+<div id="toaster"></div>
+<div class="wrap">
 
-  <div class="container mx-auto p-4 max-w-7xl">
-    <header class="text-center my-8">
-      <h1 class="text-4xl font-bold text-gray-800 flex items-center justify-center gap-3">
-        <i class="fas fa-file-pdf text-red-600"></i> 
-        PDF to Excel Smart Extractor
-      </h1>
-      <p class="text-gray-600 mt-2">Upload PDFs, define headers, extract structured data, and export to Excel.</p>
-    </header>
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-box">📑</div>
+    <div class="logo-text">
+      <h1>PDF → Excel Smart Extractor</h1>
+      <p>AIS Windows · Quotation / SO Reports · Smart Parser</p>
+    </div>
+  </div>
+  <div class="badge">100% LOCAL · NO BACKEND</div>
+</header>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      
-      <!-- Left Panel -->
-      <div class="lg:col-span-1 space-y-6">
-        <!-- Upload Area -->
-        <div class="bg-white rounded-xl shadow-md p-6">
-          <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
-            <i class="fas fa-cloud-upload-alt text-blue-500"></i> Upload PDFs
-          </h2>
-          <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition">
-            <i class="fas fa-file-pdf text-4xl text-gray-400 mb-2"></i>
-            <p class="text-gray-600">Drag & drop PDFs here or <span class="text-blue-500 underline">click to browse</span></p>
-            <p class="text-xs text-gray-400 mt-1">Supports multiple files</p>
-            <input type="file" id="fileInput" class="hidden" accept=".pdf,.PDF" multiple>
-          </div>
-          <div id="fileList" class="mt-4 space-y-2 text-sm"></div>
-          <div id="progressContainer" class="mt-3 hidden">
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
-              <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
-            </div>
-            <p id="progressText" class="text-xs text-gray-500 mt-1">Processing...</p>
-          </div>
-        </div>
+<div class="grid">
 
-        <!-- Header Configuration -->
-        <div class="bg-white rounded-xl shadow-md p-6">
-          <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
-            <i class="fas fa-sliders-h text-green-500"></i> Field Headers
-          </h2>
-          <div id="headersContainer" class="space-y-2 mb-4"></div>
-          <div class="flex gap-2">
-            <button id="addHeaderBtn" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition">
-              <i class="fas fa-plus mr-1"></i> Add Header
-            </button>
-            <button id="saveTemplateBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-lg transition" title="Save Template">
-              <i class="fas fa-save"></i>
-            </button>
-            <button id="loadTemplateBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-lg transition" title="Load Template">
-              <i class="fas fa-folder-open"></i>
-            </button>
-          </div>
-          <button id="processBtn" class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition">
-            <i class="fas fa-cogs mr-2"></i>Extract Data
-          </button>
-        </div>
+<!-- ════ SIDEBAR ════ -->
+<aside class="sidebar">
+
+  <!-- UPLOAD -->
+  <div class="card">
+    <div class="ch"><span class="ct"><span class="dot"></span>Upload Reports</span></div>
+    <div class="cb">
+      <div class="drop" id="dropZone">
+        <input type="file" id="fileInput" accept=".pdf" multiple/>
+        <span class="drop-icon">📄</span>
+        <h3>Drop PDF(s) here</h3>
+        <p>AIS Windows / Quotation / SO reports</p>
       </div>
-
-      <!-- Right Panel: Data Preview -->
-      <div class="lg:col-span-2">
-        <div class="bg-white rounded-xl shadow-md p-6">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold flex items-center gap-2">
-              <i class="fas fa-table text-purple-500"></i> Extracted Data Preview
-            </h2>
-            <div class="flex gap-2">
-              <button id="clearDataBtn" class="bg-red-100 text-red-600 hover:bg-red-200 py-2 px-4 rounded-lg transition text-sm">
-                <i class="fas fa-trash-alt mr-1"></i> Clear
-              </button>
-              <button id="sampleBtn" class="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 py-2 px-4 rounded-lg transition text-sm">
-                <i class="fas fa-download mr-1"></i> Sample Excel
-              </button>
-              <button id="exportBtn" class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition text-sm">
-                <i class="fas fa-download mr-1"></i> Export Excel
-              </button>
-            </div>
-          </div>
-          <div class="overflow-x-auto border border-gray-200 rounded-lg">
-            <table id="dataTable" class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr id="tableHeaderRow"></tr>
-              </thead>
-              <tbody id="tableBody" class="bg-white divide-y divide-gray-200">
-                <tr><td colspan="100%" class="text-center py-8 text-gray-400">Upload PDFs and process to see data here</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p id="statusMessage" class="text-sm text-gray-500 mt-2"></p>
-        </div>
-      </div>
+      <div class="flist" id="fileList"></div>
     </div>
   </div>
 
-  <script type="module">
-    // Debug: Check if modules load properly
-    import { PDFProcessor } from './js/pdfProcessor.js';
-    import { SmartExtractor } from './js/extractor.js';
-    import { ExcelExporter } from './js/exportUtils.js';
-    
-    console.log('Modules loaded successfully');
-    console.log('PDFProcessor:', PDFProcessor);
-    console.log('SmartExtractor:', SmartExtractor);
-    console.log('ExcelExporter:', ExcelExporter);
-  </script>
-  
-  <script type="module" src="js/app.js"></script>
+  <!-- ACTIONS -->
+  <div class="card">
+    <div class="cb" style="display:flex;flex-direction:column;gap:9px">
+      <div class="prog" id="prog">
+        <div class="prog-lbl" id="progLbl">Processing…</div>
+        <div class="prog-bg"><div class="prog-fill" id="progFill"></div></div>
+      </div>
+      <button class="btn btn-p" id="btnExtract" disabled>⚡ Extract Data</button>
+      <button class="btn btn-g" id="btnExport" disabled>⬇ Export to Excel (.xlsx)</button>
+      <button class="btn btn-s" id="btnClear">🗑 Clear All</button>
+    </div>
+  </div>
+
+  <!-- FIELD SELECTOR -->
+  <div class="card">
+    <div class="ch">
+      <span class="ct"><span class="dot"></span>Fields to Extract</span>
+      <div style="display:flex;gap:5px">
+        <button class="btn btn-s" onclick="toggleAll(true)" style="padding:3px 7px;font-size:10px">All</button>
+        <button class="btn btn-s" onclick="toggleAll(false)" style="padding:3px 7px;font-size:10px">None</button>
+      </div>
+    </div>
+    <div class="cb" style="max-height:420px;overflow-y:auto">
+      <div id="fieldPanel"></div>
+      <p class="note">✏ Uncheck fields you don't need. All cells are editable after extraction. Powered with
+❤️
+by
+Sanju G.</p>
+    </div>
+  </div>
+
+</aside>
+
+<!-- ════ MAIN ════ -->
+<main class="main">
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat"><div class="sv" id="st0">0</div><div class="sl">PDFs Loaded</div></div>
+    <div class="stat"><div class="sv" id="st1">0</div><div class="sl">Processed</div></div>
+    <div class="stat"><div class="sv" id="st2">0</div><div class="sl">Doc Fields</div></div>
+    <div class="stat"><div class="sv" id="st3">0</div><div class="sl">Line Items</div></div>
+  </div>
+
+  <!-- TABS + TABLE -->
+  <div class="card">
+    <div class="ch" style="padding:0 0 0 0;border-bottom:none;gap:0;flex-wrap:wrap">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('doc',this)">
+          📋 Document Summary <span class="tab-count" id="tc0">0</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('items',this)">
+          🪟 Line Items (Windows/Doors) <span class="tab-count" id="tc1">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- DOC SUMMARY TAB -->
+    <div class="tab-pane active" id="tab-doc">
+      <div class="tbl-wrap">
+        <div id="docTable">
+          <div class="empty">
+            <span class="empty-icon">📋</span>
+            <p>Document-level fields will appear here.</p>
+            <small>One row per PDF — Opportunity No, Quote No, Totals, Customer Info…</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LINE ITEMS TAB -->
+    <div class="tab-pane" id="tab-items">
+      <div class="tbl-wrap">
+        <div id="itemsTable">
+          <div class="empty">
+            <span class="empty-icon">🪟</span>
+            <p>Window / Door line items will appear here.</p>
+            <small>Each row = one window/door — Design, Size, Glass, Rate, Amount…</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+</div><!-- /grid -->
+</div><!-- /wrap -->
+
+<script>
+// ════════════════════════════════════════════════
+//  PDF.js SETUP
+// ════════════════════════════════════════════════
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ════════════════════════════════════════════════
+//  FIELD DEFINITIONS  (pre-set from the PDF analysis)
+// ════════════════════════════════════════════════
+const DOC_FIELDS = [
+  // ── QUOTE HEADER
+  { key:'opportunityNo',  label:'Opportunity No',       group:'Quote Header',    patterns:[/opportunity\s*(?:no|code|num)\.?\s*[:\-]?\s*(AISGS-OP\d+)/i, /\b(AISGS-OP\d{5,})\b/] },
+  { key:'quoteNo',        label:'Quote No',             group:'Quote Header',    patterns:[/quote\s*(?:no|code|num)\.?\s*[:\-]?\s*(AISGS-QT\d+)/i, /\b(AISGS-QT\d{5,})\b/] },
+  { key:'quoteDate',      label:'Quote Date',           group:'Quote Header',    patterns:[/quote\s*date\s*[:\-]?\s*(\d{2}-\d{2}-\d{4})/i, /(\d{2}[\/-]\d{2}[\/-]\d{4})/] },
+  { key:'quoteValidity',  label:'Quote Valid Till',     group:'Quote Header',    patterns:[/valid\s+till\s*[:\-]?\s*(\d{2}-\d{2}-\d{4})/i] },
+  { key:'salesperson',    label:'Salesperson',          group:'Quote Header',    patterns:[/salesperson\s*[:\-]?\s*(.+?)(?:\n|responsible)/i] },
+  { key:'responsible',    label:'Responsible Person',   group:'Quote Header',    patterns:[/responsible\s*[\n\r]+\s*(.+?)[\n\r]/i, /Ranjeet\s+Singh/] },
+  // ── CUSTOMER INFO
+  { key:'customerName',   label:'Customer Name',        group:'Customer Info',   patterns:[/Dream Home Decor Hub Pvt\.?\s*Ltd/i, /^To[\s\S]{0,10}\n(.+)/m] },
+  { key:'dealerName',     label:'Dealer / Entity Name', group:'Customer Info',   patterns:[/Dream\s+home\s+decor\s+hub\s+pvt\.?\s*ltd/i] },
+  { key:'deliveryAddress',label:'Delivery Address',     group:'Customer Info',   patterns:[/deliver\s*to[\s\S]{0,5}\n(.+)/i] },
+  { key:'city',           label:'City',                 group:'Customer Info',   patterns:[/Bikaner/i] },
+  { key:'state',          label:'State',                group:'Customer Info',   patterns:[/RAJASTHAN/i] },
+  { key:'pinCode',        label:'Pin Code',             group:'Customer Info',   patterns:[/Pin[-\s]*(\d{6})/i, /\b(334\d{3})\b/] },
+  { key:'phone',          label:'Phone No',             group:'Customer Info',   patterns:[/Ph\s*No\.?\s*[:\-]?\s*(\+?[\d\s]{10,15})/i, /(\+91\s*\d{10})/] },
+  { key:'email',          label:'Email',                group:'Customer Info',   patterns:[/[\w.+-]+@[\w-]+\.[a-z]{2,}/gi] },
+  { key:'gstin',          label:'GSTIN',                group:'Customer Info',   patterns:[/GSTIN\s*[:\-]?\s*([A-Z0-9]{15})/i, /\b(\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d])\b/] },
+  // ── ORDER SUMMARY
+  { key:'totalWindows',   label:'Total Windows',        group:'Order Summary',   patterns:[/total\s+windows?\s*[:\-]?\s*(\d+\s*Nos?)/i, /Total Windows\s*:\s*(\d+)/i] },
+  { key:'totalArea',      label:'Total Area (Sq.Ft.)',  group:'Order Summary',   patterns:[/total\s+area\s*[:\-]?\s*([\d.]+\s*Sq\.?Ft\.?)/i, /([\d.]+)\s*Sq\.?Ft/i] },
+  { key:'totalWeight',    label:'Total Weight (KG)',    group:'Order Summary',   patterns:[/total\s+weight\s*[:\-]?\s*([\d.]+\s*KG)/i, /([\d.]+)\s*KG/i] },
+  { key:'totalQty',       label:'Total Qty',            group:'Order Summary',   patterns:[/total\s+qty\s*[\s\S]{0,5}(\d+)/i] },
+  { key:'paymentTerms',   label:'Payment Terms',        group:'Order Summary',   patterns:[/payment\s+terms[\s\S]{0,10}\n(.+)/i, /100%\s+advance[^.]+\./i] },
+  // ── PRICING
+  { key:'basicPrice',     label:'Basic Price (Rs)',     group:'Pricing',         patterns:[/basic\s+price\s*[:\-]?\s*Rs\.?\s*([\d,]+)/i] },
+  { key:'installation',   label:'Installation Labour (Rs)', group:'Pricing',     patterns:[/installation\s+labour\s*[:\-]?\s*Rs\.?\s*([\d,]+)/i] },
+  { key:'loadingUnload',  label:'Loading & Unloading (Rs)', group:'Pricing',     patterns:[/loading\s+and\s+unloading\s*[:\-]?\s*Rs\.?\s*([\d,]+)/i] },
+  { key:'transport',      label:'Transportation Charges (Rs)', group:'Pricing',  patterns:[/transportation\s+charges?\s*[:\-]?\s*Rs\.?\s*([\d,]+)/i] },
+  { key:'totalTaxable',   label:'Total Taxable (Rs)',   group:'Pricing',         patterns:[/total\s+taxable\s*[:\-]?\s*Rs\.?\s*([\d,]+)/i] },
+  { key:'igst',           label:'IGST @ 18% (Rs)',      group:'Pricing',         patterns:[/IGST\s*@?\s*18%?\s*[:\-]?\s*Rs\.?\s*([\d,]+)/i] },
+  { key:'grandTotal',     label:'Grand Total (Rs)',     group:'Pricing',         patterns:[/grand\s+total\s*[:\-]?\s*Rs\.?\s*([\d,]+)/i] },
+  // ── BANK DETAILS
+  { key:'bankName',       label:'Bank Name',            group:'Bank Details',    patterns:[/bank\s+name\s*[:\-]?\s*(.+?)(?:\n|IFSC)/i, /PNB Bank/i] },
+  { key:'accountNo',      label:'Account Number',       group:'Bank Details',    patterns:[/acc[o]?[u]?nt\s+number?\s*[:\-]?\s*(\d{9,18})/i] },
+  { key:'ifsc',           label:'IFSC Code',            group:'Bank Details',    patterns:[/IFSC\s*[:\-]?\s*([A-Z]{4}0[A-Z0-9]{6})/i] },
+  { key:'branch',         label:'Branch',               group:'Bank Details',    patterns:[/branch\s*[:\-]?\s*(.+?)[\n\r]/i] },
+];
+
+const ITEM_FIELDS = [
+  { key:'slNo',         label:'Sl. No',           patterns:[] },
+  { key:'salesLine',    label:'Sales Line / Design Ref', patterns:[] },
+  { key:'product',      label:'Product',          patterns:[] },
+  { key:'location',     label:'Location / Window Code', patterns:[] },
+  { key:'height',       label:'Height (mm)',       patterns:[] },
+  { key:'width',        label:'Width (mm)',        patterns:[] },
+  { key:'qty',          label:'Qty',               patterns:[] },
+  { key:'mesh',         label:'Mesh',              patterns:[] },
+  { key:'glassSpec',    label:'Glass Specification', patterns:[] },
+  { key:'profileColor', label:'Profile Color',     patterns:[] },
+  { key:'designName',   label:'Design Name',       patterns:[] },
+  { key:'area',         label:'Area (Sq.Ft.)',     patterns:[] },
+  { key:'weight',       label:'Weight (Kg)',       patterns:[] },
+  { key:'rate',         label:'Rate (INR)',        patterns:[] },
+  { key:'amount',       label:'Amount (INR)',      patterns:[] },
+];
+
+// ════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════
+const state = {
+  files: [],
+  docRows: [],    // one per PDF
+  itemRows: [],   // multiple per PDF
+  activeTab:'doc',
+  docEnabled: new Set(DOC_FIELDS.map(f=>f.key)),
+  itemEnabled: new Set(ITEM_FIELDS.map(f=>f.key)),
+};
+
+// ════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+function toast(msg, type='inf', dur=3000){
+  const icons={ok:'✓',err:'✗',inf:'ℹ'};
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  el.innerHTML=`<span>${icons[type]}</span><span>${msg}</span>`;
+  $('toaster').appendChild(el);
+  setTimeout(()=>el.remove(), dur);
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function tr(s,n){ return s.length<=n?s:s.slice(0,n)+'…' }
+
+// ════════════════════════════════════════════════
+//  FIELD PANEL BUILD
+// ════════════════════════════════════════════════
+function buildFieldPanel(){
+  const panel = $('fieldPanel');
+  panel.innerHTML = '';
+
+  // Group DOC fields
+  const dGroups = {};
+  DOC_FIELDS.forEach(f => { (dGroups[f.group]=dGroups[f.group]||[]).push(f) });
+
+  const docSection = document.createElement('div');
+  docSection.innerHTML = '<div class="field-group-title" style="color:var(--accent)">📋 Document Fields</div>';
+  Object.entries(dGroups).forEach(([grp, fields]) => {
+    const g = document.createElement('div');
+    g.className = 'field-group';
+    g.innerHTML = `<div class="field-group-title">${grp}</div>`;
+    fields.forEach(f => {
+      const row = document.createElement('label');
+      row.className = 'field-row';
+      row.innerHTML = `
+        <input type="checkbox" class="field-chk" data-type="doc" data-key="${f.key}" ${state.docEnabled.has(f.key)?'checked':''} onchange="toggleField('doc','${f.key}',this.checked)">
+        <span class="field-lbl">${f.label}</span>`;
+      g.appendChild(row);
+    });
+    docSection.appendChild(g);
+  });
+  panel.appendChild(docSection);
+
+  const sep = document.createElement('div');
+  sep.className='sep'; sep.style.margin='12px 0';
+  panel.appendChild(sep);
+
+  // Item fields
+  const itemSection = document.createElement('div');
+  itemSection.innerHTML = '<div class="field-group-title" style="color:var(--gold)">🪟 Line Item Fields (per window)</div>';
+  const ig = document.createElement('div');
+  ig.className = 'field-group';
+  ITEM_FIELDS.forEach(f => {
+    const row = document.createElement('label');
+    row.className = 'field-row';
+    row.innerHTML = `
+      <input type="checkbox" class="field-chk" data-type="item" data-key="${f.key}" ${state.itemEnabled.has(f.key)?'checked':''} onchange="toggleField('item','${f.key}',this.checked)">
+      <span class="field-lbl">${f.label}</span>`;
+    ig.appendChild(row);
+  });
+  itemSection.appendChild(ig);
+  panel.appendChild(itemSection);
+}
+
+function toggleField(type, key, checked){
+  if(type==='doc') checked ? state.docEnabled.add(key) : state.docEnabled.delete(key);
+  else checked ? state.itemEnabled.add(key) : state.itemEnabled.delete(key);
+  renderTables();
+  updateStats();
+}
+
+function toggleAll(on){
+  DOC_FIELDS.forEach(f => on ? state.docEnabled.add(f.key) : state.docEnabled.delete(f.key));
+  ITEM_FIELDS.forEach(f => on ? state.itemEnabled.add(f.key) : state.itemEnabled.delete(f.key));
+  buildFieldPanel();
+  renderTables();
+}
+
+// ════════════════════════════════════════════════
+//  DRAG & DROP UPLOAD
+// ════════════════════════════════════════════════
+const dz = $('dropZone');
+const fi = $('fileInput');
+dz.addEventListener('dragover', e=>{e.preventDefault();dz.classList.add('over')});
+dz.addEventListener('dragleave', ()=>dz.classList.remove('over'));
+dz.addEventListener('drop', e=>{e.preventDefault();dz.classList.remove('over');addFiles([...e.dataTransfer.files].filter(f=>f.type==='application/pdf'))});
+fi.addEventListener('change', ()=>{addFiles([...fi.files]);fi.value=''});
+
+function addFiles(arr){
+  arr.forEach(f=>{
+    if(!state.files.find(x=>x.name===f.name))
+      state.files.push({file:f,name:f.name,status:'pending'});
+  });
+  renderFileList(); updateStats(); updateBtns();
+}
+
+function renderFileList(){
+  const el=$('fileList'); el.innerHTML='';
+  state.files.forEach((f,i)=>{
+    const cls={pending:'',processing:'s-proc',done:'s-ok',error:'s-err'}[f.status]||'';
+    const lbl={pending:'READY',processing:'READING…',done:'DONE',error:'ERROR'}[f.status]||'?';
+    const d=document.createElement('div');
+    d.className=`fitem ${cls}`;
+    d.innerHTML=`<span class="fname" title="${esc(f.name)}">📄 ${esc(tr(f.name,22))}</span>
+      <span class="fbadge">${lbl}</span>
+      <span class="frem" onclick="removeFile(${i})">✕</span>`;
+    el.appendChild(d);
+  });
+}
+
+function removeFile(i){
+  state.files.splice(i,1);
+  state.docRows=state.docRows.filter(r=>r._file!==state.files[i]?.name);
+  state.itemRows=state.itemRows.filter(r=>r._file!==state.files[i]?.name);
+  renderFileList(); renderTables(); updateStats(); updateBtns();
+}
+
+// ════════════════════════════════════════════════
+//  PDF PARSING
+// ════════════════════════════════════════════════
+async function parsePDF(fileObj){
+  const buf = await fileObj.file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  let fullText=''; const pages=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const tc=await page.getTextContent();
+    const items=tc.items.map(it=>({str:it.str,x:it.transform[4],y:it.transform[5]}));
+    // Group into lines by Y coordinate
+    const lines=groupLines(items);
+    const txt=lines.map(l=>l.map(t=>t.str).join(' ')).join('\n');
+    pages.push({n:p,lines,text:txt});
+    fullText+=txt+'\n';
+  }
+  return {fullText, pages};
+}
+
+function groupLines(items){
+  if(!items.length)return[];
+  const sorted=[...items].sort((a,b)=>b.y-a.y||a.x-b.x);
+  const lines=[]; let cur=[sorted[0]];
+  for(let i=1;i<sorted.length;i++){
+    Math.abs(sorted[i].y-cur[cur.length-1].y)<=4 ? cur.push(sorted[i]) : (lines.push(cur.sort((a,b)=>a.x-b.x)),cur=[sorted[i]]);
+  }
+  lines.push(cur.sort((a,b)=>a.x-b.x));
+  return lines.filter(l=>l.some(t=>t.str.trim()));
+}
+
+// ════════════════════════════════════════════════
+//  DOCUMENT-LEVEL EXTRACTION
+// ════════════════════════════════════════════════
+function extractDocFields(fullText, pages){
+  const row={};
+  DOC_FIELDS.forEach(f=>{
+    let val='';
+    for(const pat of f.patterns){
+      if(!val){
+        try{
+          pat.lastIndex=0;
+          const m=fullText.match(pat);
+          if(m) val=(m[1]||m[0]).trim().replace(/\n.*/,'').trim();
+        }catch(e){}
+      }
+    }
+    row[f.key]=clean(val);
+  });
+
+  // Custom overrides for tricky fields
+  row.opportunityNo = extractFirst(fullText, /\b(AISGS-OP\d{5,})\b/) || row.opportunityNo;
+  row.quoteNo       = extractFirst(fullText, /\b(AISGS-QT\d{5,})\b/) || row.quoteNo;
+  row.gstin         = extractFirst(fullText, /\b([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9])\b/) || row.gstin;
+  row.email         = extractFirst(fullText, /\b([\w.+-]+@[\w-]+\.[a-z]{2,})\b/i) || row.email;
+  row.phone         = extractFirst(fullText, /(\+91\s*\d{10})/) || row.phone;
+  row.pinCode       = extractFirst(fullText, /Pin[-\s]*([\d]{6})/) || row.pinCode;
+  row.accountNo     = extractFirst(fullText, /Acc[o]?[u]?nt\s+Number?\s*[:\-]?\s*([\d]{8,18})/i) || row.accountNo;
+  row.ifsc          = extractFirst(fullText, /IFSC\s*[:\-]?\s*([A-Z]{4}0[A-Z0-9]{6})/i) || row.ifsc;
+
+  // Pricing — grab the last occurrence (final summary page is most accurate)
+  row.basicPrice    = extractLast(fullText, /Basic\s+Price\s*[:\-]?\s*Rs\.?\s*([\d,]+)/gi) || row.basicPrice;
+  row.installation  = extractLast(fullText, /Installation\s+Labour\s*[:\-]?\s*Rs\.?\s*([\d,]+)/gi) || row.installation;
+  row.loadingUnload = extractLast(fullText, /Loading\s+And\s+Unloading\s*[:\-]?\s*Rs\.?\s*([\d,]+)/gi) || row.loadingUnload;
+  row.transport     = extractLast(fullText, /Transportation\s+Charges?\s*[:\-]?\s*Rs\.?\s*([\d,]+)/gi) || row.transport;
+  row.totalTaxable  = extractLast(fullText, /Total\s+Taxable\s*[:\-]?\s*Rs\.?\s*([\d,]+)/gi) || row.totalTaxable;
+  row.igst          = extractLast(fullText, /IGST\s*@?\s*18%?\s*[:\-]?\s*Rs\.?\s*([\d,]+)/gi) || row.igst;
+  row.grandTotal    = extractLast(fullText, /Grand\s+Total\s*[:\-]?\s*Rs\.?\s*([\d,]+)/gi) || row.grandTotal;
+
+  // Customer / dealer
+  if(!row.customerName) row.customerName = extractFirst(fullText,/Dream Home Decor Hub Pvt\.?\s*Ltd/i) || '';
+  if(!row.dealerName) row.dealerName = row.customerName;
+  if(!row.city) row.city = extractFirst(fullText,/\b(Bikaner)\b/i) || '';
+  if(!row.state) row.state = extractFirst(fullText,/\b(RAJASTHAN)\b/i) || '';
+
+  // Payment terms
+  if(!row.paymentTerms) row.paymentTerms = extractFirst(fullText, /100%\s+advance\s+with\s+Order/i) ? '100% advance with Order' : '';
+
+  // Quote validity
+  if(!row.quoteValidity) row.quoteValidity = extractFirst(fullText, /valid\s+till\s*(\d{2}-\d{2}-\d{4})/i) || '';
+
+  // Totals
+  if(!row.totalWindows) row.totalWindows = extractFirst(fullText,/Total\s+Windows?\s*[:\-]?\s*(\d+\s*Nos?)/i) || '';
+  if(!row.totalArea)    row.totalArea    = extractFirst(fullText,/Total\s+Area\s*[:\-]?\s*([\d.]+\s*Sq\.?Ft\.?)/i) || '';
+  if(!row.totalWeight)  row.totalWeight  = extractFirst(fullText,/Total\s+Weight:?\s*([\d.]+\s*KG)/i) || '';
+
+  // Bank
+  if(!row.bankName)   row.bankName   = extractFirst(fullText,/Bank\s+Name\s*[:\-]?\s*(.+?)(?:\n|$)/i) || '';
+  if(!row.branch)     row.branch     = extractFirst(fullText,/Branch\s*[:\-]?\s*(.+?)(?:\n|$)/i) || '';
+  if(!row.responsible)row.responsible= extractFirst(fullText,/Ranjeet\s+Singh/i) ? 'Ranjeet Singh' : '';
+  if(!row.salesperson)row.salesperson= extractFirst(fullText,/Dream Home Decor Hub Private Limited/i) ? 'Dream Home Decor Hub Private Limited' : '';
+
+  return row;
+}
+
+function extractFirst(text, rx){ rx.lastIndex=0; const m=text.match(rx); return m?(m[1]||m[0]).trim():''; }
+function extractLast(text, rx){
+  rx.lastIndex=0; let m, last='';
+  while((m=rx.exec(text))!==null) last=(m[1]||m[0]).trim();
+  return last;
+}
+function clean(s){ return String(s||'').replace(/[\r\n]+/,' ').trim().slice(0,200); }
+
+// ════════════════════════════════════════════════
+//  LINE ITEMS EXTRACTION
+// ════════════════════════════════════════════════
+function extractLineItems(fullText, pages, fileName){
+  const items=[];
+
+  // ── Strategy A: Parse the "Price and Quantity Summary" table (page 4 equivalent)
+  // Pattern: line like "1 TILT AND TURN1 uPVC NEAR WAY WINDOW... 1507 679 1 No ... 16,756 16,756"
+  // We'll scan all pages for the summary table
+  const summaryMatch = extractSummaryTable(fullText);
+  if(summaryMatch.length) return summaryMatch.map(r=>({_file:fileName,...r}));
+
+  // ── Strategy B: Parse detailed sales lines ("1. TILT AND TURN-1 ... Qty Rate Amount")
+  const detailItems = extractDetailBlocks(fullText);
+  if(detailItems.length) return detailItems.map(r=>({_file:fileName,...r}));
+
+  return items;
+}
+
+function extractSummaryTable(text){
+  const rows=[];
+  // Find section between "Price and Quantity Summary" and "Total Qty"
+  const start=text.search(/Price\s+and\s+Quantity\s+Summary/i);
+  const end=text.search(/Total\s+Qty/i);
+  if(start===-1) return rows;
+  const section=text.slice(start, end===-1?start+3000:end);
+  const lines=section.split('\n').map(l=>l.trim()).filter(Boolean);
+
+  // Skip header lines, find numbered data rows
+  lines.forEach(line=>{
+    // Pattern: starts with digit, has product type (uPVC/Aluminium), ends with two amounts
+    const m=line.match(/^(\d+)\s+([A-Z][A-Z\s\-]+?\d*)\s+(uPVC|Aluminium|UPVC)\s+(.+?)\s+(\d{3,4})\s+(\d{3,4})\s+(\d+)\s+(Yes|No)\s+(.+?)\s+([\d,]+)\s+([\d,]+)$/i);
+    if(m){
+      rows.push({
+        slNo:m[1], salesLine:m[2].trim(), product:m[3],
+        location:m[4].trim(), height:m[5], width:m[6],
+        qty:m[7], mesh:m[8], glassSpec:m[9].trim(),
+        profileColor:'', designName:m[2].trim(), area:'', weight:'',
+        rate:m[10].replace(/,/g,''), amount:m[11].replace(/,/g,'')
+      });
+    }
+  });
+  return rows;
+}
+
+function extractDetailBlocks(text){
+  const rows=[];
+  // Each detail block starts with "N. DESIGN-NAME\n" and ends before next "N+1."
+  // Split on numbered item markers
+  const blocks=text.split(/(?=\n\d{1,2}\.\s+[A-Z][A-Z\s\-]+\n)/);
+
+  blocks.forEach(block=>{
+    const head=block.match(/^[\s\n]*(\d{1,2})\.\s+(.+)\n/);
+    if(!head) return;
+    const slNo=head[1], salesLine=head[2].trim();
+    if(!salesLine || salesLine.length>80) return;
+
+    const get=(rx)=>{ const m=block.match(rx); return m?(m[1]||m[0]).trim():''; };
+
+    const size=block.match(/Size\s*[:\-]?\s*W\s*=\s*([\d.]+)[;,\s]*H\s*=\s*([\d.]+)/i);
+    const rateAmt=block.match(/([\d,]+)\s+([\d,]+)\s*$/m);
+
+    rows.push({
+      slNo,
+      salesLine,
+      product:     get(/AIS\s+\w+\s+[\w\s]+SERIES/i)||'uPVC',
+      location:    get(/Floor\s*\d*\s*[-\-]?\s*(W\d+[^\n]*)/i)||get(/(W\d{2})/),
+      height:      size?size[2]:'',
+      width:       size?size[1]:'',
+      qty:         get(/\b(\d+)\s*(?:Nos?|$)/i)||'1',
+      mesh:        get(/MeshType\s*[:\-]?\s*(.+)/i)||'',
+      glassSpec:   get(/Infill\s*[:\-]?\s*(.+)/i)||'',
+      profileColor:get(/Profile\s+Colo[u]?r\s*[:\-]?\s*(.+)/i)||'',
+      designName:  get(/Design\s+Name\s*[:\-]?\s*(.+)/i)||salesLine,
+      area:        get(/Area\s*[:\-]?\s*([\d.]+\s*Sqft\.?)/i)||'',
+      weight:      get(/Weight[:\s]*([\d.]+\s*Kg)/i)||'',
+      rate:        rateAmt?rateAmt[1].replace(/,/g,''):'',
+      amount:      rateAmt?rateAmt[2].replace(/,/g,''):'',
+    });
+  });
+  return rows;
+}
+
+// ════════════════════════════════════════════════
+//  MAIN PROCESS
+// ════════════════════════════════════════════════
+$('btnExtract').addEventListener('click', async()=>{
+  if(!state.files.length){toast('No PDFs uploaded','err');return;}
+  $('btnExtract').disabled=true;
+  $('btnExport').disabled=true;
+  state.docRows=[]; state.itemRows=[];
+  $('prog').classList.add('show');
+
+  for(let i=0;i<state.files.length;i++){
+    const f=state.files[i];
+    f.status='processing'; renderFileList();
+    setProgress(i, state.files.length, `Reading ${f.name}…`);
+    try{
+      const {fullText, pages}=await parsePDF(f);
+      const docRow={_file:f.name,...extractDocFields(fullText,pages)};
+      state.docRows.push(docRow);
+      const items=extractLineItems(fullText, pages, f.name);
+      state.itemRows.push(...items);
+      f.status='done';
+    }catch(err){
+      console.error(err);
+      f.status='error';
+      state.docRows.push({_file:f.name,...Object.fromEntries(DOC_FIELDS.map(f=>[f.key,'ERROR']))});
+    }
+    renderFileList();
+  }
+
+  setProgress(state.files.length, state.files.length, 'Complete!');
+  setTimeout(()=>$('prog').classList.remove('show'),1400);
+  renderTables(); updateStats(); updateBtns();
+  toast(`Extracted ${state.files.length} PDF(s)!`,'ok');
+});
+
+function setProgress(done,total,lbl){
+  $('progFill').style.width=(total?Math.round(done/total*100):0)+'%';
+  $('progLbl').textContent=lbl+` (${done}/${total})`;
+}
+
+// ════════════════════════════════════════════════
+//  TABLE RENDERING
+// ════════════════════════════════════════════════
+function renderTables(){
+  renderDocTable();
+  renderItemsTable();
+}
+
+function renderDocTable(){
+  const el=$('docTable');
+  const activeDocs=DOC_FIELDS.filter(f=>state.docEnabled.has(f.key));
+  if(!state.docRows.length){
+    el.innerHTML=`<div class="empty"><span class="empty-icon">📋</span><p>Document-level fields will appear here.</p><small>One row per PDF — Opportunity No, Quote No, Totals, Customer Info…</small></div>`;
+    return;
+  }
+  let html=`<table><thead><tr><th>File</th>${activeDocs.map(f=>`<th class="w-sm">${esc(f.label)}</th>`).join('')}</tr></thead><tbody>`;
+  state.docRows.forEach((row,ri)=>{
+    html+=`<tr><td class="fixed-cell" title="${esc(row._file)}">${esc(tr(row._file,18))}</td>`;
+    activeDocs.forEach(f=>{
+      const v=row[f.key]||'';
+      html+=`<td><input type="text" value="${esc(v)}" placeholder="—" class="${v?'extracted':'empty'}"
+        onchange="state.docRows[${ri}]['${f.key}']=this.value;this.className=this.value?'extracted':'empty'"
+        title="${esc(v)}"></td>`;
+    });
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table>`;
+  el.innerHTML=html;
+  $('tc0').textContent=state.docRows.length;
+}
+
+function renderItemsTable(){
+  const el=$('itemsTable');
+  const activeItems=ITEM_FIELDS.filter(f=>state.itemEnabled.has(f.key));
+  if(!state.itemRows.length){
+    el.innerHTML=`<div class="empty"><span class="empty-icon">🪟</span><p>Window / Door line items will appear here.</p><small>Each row = one window/door — Design, Size, Glass, Rate, Amount…</small></div>`;
+    return;
+  }
+  let html=`<table><thead><tr><th>File</th>${activeItems.map(f=>`<th class="w-sm">${esc(f.label)}</th>`).join('')}</tr></thead><tbody>`;
+  state.itemRows.forEach((row,ri)=>{
+    html+=`<tr><td class="fixed-cell" title="${esc(row._file)}">${esc(tr(row._file,16))}</td>`;
+    activeItems.forEach(f=>{
+      const v=row[f.key]||'';
+      html+=`<td><input type="text" value="${esc(v)}" placeholder="—" class="${v?'extracted':'empty'}"
+        onchange="state.itemRows[${ri}]['${f.key}']=this.value;this.className=this.value?'extracted':'empty'"
+        title="${esc(v)}"></td>`;
+    });
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table>`;
+  el.innerHTML=html;
+  $('tc1').textContent=state.itemRows.length;
+}
+
+// ════════════════════════════════════════════════
+//  EXPORT TO EXCEL
+// ════════════════════════════════════════════════
+$('btnExport').addEventListener('click',()=>{
+  if(!state.docRows.length && !state.itemRows.length){toast('Nothing to export','err');return;}
+  const wb=XLSX.utils.book_new();
+
+  // Sheet 1 — Document Summary
+  const activeDocs=DOC_FIELDS.filter(f=>state.docEnabled.has(f.key));
+  const docHeaders=['File Name',...activeDocs.map(f=>f.label)];
+  const docData=[docHeaders,...state.docRows.map(r=>[r._file,...activeDocs.map(f=>r[f.key]||'')])];
+  const ws1=XLSX.utils.aoa_to_sheet(docData);
+  styleHeader(ws1,docData[0].length);
+  ws1['!cols']=docData[0].map((_,ci)=>({wch:Math.min(40,Math.max(14,...docData.map(r=>String(r[ci]||'').length)))}));
+  XLSX.utils.book_append_sheet(wb,ws1,'Document Summary');
+
+  // Sheet 2 — Line Items
+  const activeItems=ITEM_FIELDS.filter(f=>state.itemEnabled.has(f.key));
+  const itemHeaders=['File Name',...activeItems.map(f=>f.label)];
+  const itemData=[itemHeaders,...state.itemRows.map(r=>[r._file,...activeItems.map(f=>r[f.key]||'')])];
+  const ws2=XLSX.utils.aoa_to_sheet(itemData);
+  styleHeader(ws2,itemData[0].length);
+  ws2['!cols']=itemData[0].map((_,ci)=>({wch:Math.min(40,Math.max(12,...itemData.map(r=>String(r[ci]||'').length)))}));
+  XLSX.utils.book_append_sheet(wb,ws2,'Line Items (Windows-Doors)');
+
+  // Sheet 3 — Summary stats
+  const meta=[
+    ['Export Details',''],
+    ['Exported On',new Date().toLocaleString()],
+    ['Total PDFs',state.files.length],
+    ['Document Rows',state.docRows.length],
+    ['Line Item Rows',state.itemRows.length],
+    ['Doc Fields Exported',activeDocs.length],
+    ['Item Fields Exported',activeItems.length],
+  ];
+  const ws3=XLSX.utils.aoa_to_sheet(meta);
+  ws3['!cols']=[{wch:22},{wch:36}];
+  XLSX.utils.book_append_sheet(wb,ws3,'Export Summary');
+
+  XLSX.writeFile(wb,'Dealer_Report_Extracted.xlsx');
+  toast('Excel downloaded!','ok');
+});
+
+function styleHeader(ws, cols){
+  for(let c=0;c<cols;c++){
+    const addr=XLSX.utils.encode_cell({r:0,c});
+    if(ws[addr]) ws[addr].s={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'0284C7'}}};
+  }
+}
+
+// ════════════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════════════
+function switchTab(id, btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  $(`tab-${id}`).classList.add('active');
+  btn.classList.add('active');
+  state.activeTab=id;
+}
+
+// ════════════════════════════════════════════════
+//  STATS + BUTTONS
+// ════════════════════════════════════════════════
+function updateStats(){
+  $('st0').textContent=state.files.length;
+  $('st1').textContent=state.files.filter(f=>f.status==='done').length;
+  $('st2').textContent=state.docRows.length;
+  $('st3').textContent=state.itemRows.length;
+}
+function updateBtns(){
+  $('btnExtract').disabled=!state.files.length;
+  $('btnExport').disabled=!state.docRows.length&&!state.itemRows.length;
+}
+
+// CLEAR
+$('btnClear').addEventListener('click',()=>{
+  state.files=[]; state.docRows=[]; state.itemRows=[];
+  renderFileList(); renderTables(); updateStats(); updateBtns();
+  toast('Cleared','inf');
+});
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+buildFieldPanel();
+updateStats();
+updateBtns();
+</script>
 </body>
 </html>
