@@ -1,18 +1,10 @@
-// pdfProcessor.js
-// Handles PDF text extraction using PDF.js
+// pdfProcessor.js - Enhanced PDF Text Extraction
 
 export class PDFProcessor {
   constructor() {
-    // Initialize PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   }
 
-  /**
-   * Extracts text content from a PDF file, preserving page structure.
-   * @param {File} file - The PDF file to process
-   * @param {Function} progressCallback - Optional callback for progress (0-100)
-   * @returns {Promise<Object>} - { fileName, pages: [{pageNumber, text}] }
-   */
   async extractText(file, progressCallback = null) {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -23,26 +15,25 @@ export class PDFProcessor {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       
-      // Combine text items maintaining some positional logic
-      // Sort by vertical then horizontal position to mimic reading order
+      // Enhanced text extraction with position awareness
       const textItems = textContent.items.map(item => ({
         str: item.str,
-        x: item.transform[4],
-        y: item.transform[5]
+        x: Math.round(item.transform[4]),
+        y: Math.round(item.transform[5]),
+        width: item.width || 0,
+        height: item.height || 0
       }));
       
-      // Sort items: primarily by Y position (descending, as PDF origin is bottom-left), then by X
-      textItems.sort((a, b) => {
-        const yDiff = b.y - a.y;
-        if (Math.abs(yDiff) > 5) return yDiff; // Different lines
-        return a.x - b.x; // Same line, left to right
-      });
-
-      const pageText = textItems.map(item => item.str).join(' ');
+      // Group text items by lines (similar Y coordinates)
+      const lines = this._groupIntoLines(textItems);
+      
+      // Join lines with proper spacing
+      const pageText = lines.map(line => line.join(' ')).join('\n');
       
       pages.push({
         pageNumber: i,
-        text: pageText
+        text: pageText,
+        rawItems: textItems
       });
 
       if (progressCallback) {
@@ -55,5 +46,53 @@ export class PDFProcessor {
       pages: pages,
       fullText: pages.map(p => p.text).join('\n')
     };
+  }
+
+  /**
+   * Group text items into lines based on Y position
+   */
+  _groupIntoLines(items) {
+    if (items.length === 0) return [];
+    
+    // Sort by Y position (descending) then X position (ascending)
+    const sorted = [...items].sort((a, b) => {
+      const yDiff = b.y - a.y;
+      if (Math.abs(yDiff) > 5) return yDiff; // Different lines
+      return a.x - b.x; // Same line, left to right
+    });
+    
+    const lines = [];
+    let currentLine = [];
+    let currentY = sorted[0].y;
+    
+    for (const item of sorted) {
+      if (Math.abs(item.y - currentY) > 5) {
+        // New line
+        if (currentLine.length > 0) {
+          lines.push(currentLine.map(item => item.str));
+        }
+        currentLine = [item];
+        currentY = item.y;
+      } else {
+        // Same line, check for column gaps
+        if (currentLine.length > 0) {
+          const lastItem = currentLine[currentLine.length - 1];
+          const gap = item.x - (lastItem.x + lastItem.width);
+          
+          // If significant gap, add spacing
+          if (gap > 20) {
+            currentLine.push({ str: '  ', x: 0, y: 0, width: 0, height: 0 });
+          }
+        }
+        currentLine.push(item);
+      }
+    }
+    
+    // Don't forget the last line
+    if (currentLine.length > 0) {
+      lines.push(currentLine.map(item => item.str));
+    }
+    
+    return lines;
   }
 }
